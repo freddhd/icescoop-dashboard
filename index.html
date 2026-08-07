@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ice Scoop — Dashboard de ventas</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#f4f7fb; --card:#ffffff; --card2:#eef3f9; --ink:#16243a;
+    --muted:#677c9a; --line:#e2e9f2; --cyan:#1aa9c4; --cyan-soft:#5ec9dd; --gym:#e2873f;
+    --gold:#e0a92e; --green:#1faa6a; --red:#e0574f; --purple:#7b6cf0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);padding:26px;line-height:1.45}
+  .wrap{max-width:1040px;margin:0 auto}
+  header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  h1{font-size:25px;letter-spacing:.2px}
+  h1 .scoop{color:var(--cyan)}
+  .sub{color:var(--muted);font-size:13px}
+  .src{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:20px;background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+  .src .dotsrc{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .src.live .dotsrc{background:var(--green)}
+  .src.live{color:var(--green);border-color:rgba(31,170,106,.3);background:rgba(31,170,106,.08)}
+  .src.snap .dotsrc{background:var(--gold)}
+
+  /* Upload box */
+  .upload-box{background:var(--card);border:2px dashed var(--line);border-radius:16px;padding:32px;margin:20px 0;text-align:center;display:none}
+  .upload-box.show{display:block}
+  .upload-box p{color:var(--muted);font-size:14px;margin-bottom:14px}
+  .upload-box label{display:inline-block;padding:9px 20px;background:var(--cyan);color:#fff;border-radius:20px;cursor:pointer;font-size:13px;font-weight:600}
+  .upload-box label:hover{background:#158fa8}
+  .upload-box input{display:none}
+  .upload-box .url-row{margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .upload-box .url-row input[type=text]{flex:1;min-width:260px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;color:var(--ink)}
+  .upload-box .url-row button{padding:7px 16px;background:var(--cyan);color:#fff;border:none;border-radius:8px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+
+  .controls{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:18px 0 22px;
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;box-shadow:0 1px 2px rgba(20,36,58,.04)}
+  .controls .presets{display:flex;gap:6px;flex-wrap:wrap}
+  .controls button{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:20px;border:1px solid var(--line);
+    background:var(--card2);color:var(--ink);cursor:pointer;transition:.15s}
+  .controls button:hover{border-color:var(--cyan-soft)}
+  .controls button.active{background:var(--cyan);border-color:var(--cyan);color:#fff;font-weight:600}
+  .controls .dates{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:12.5px;color:var(--muted)}
+  .controls input[type=date]{font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#fff}
+  .range-label{font-size:13px;color:var(--muted);margin:-10px 0 18px}
+  .range-label b{color:var(--ink)}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px;box-shadow:0 1px 2px rgba(20,36,58,.04)}
+  .kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .kpi .val{font-size:25px;font-weight:700;margin-top:5px}
+  .kpi .val small{font-size:13px;color:var(--muted);font-weight:500}
+  .kpi.accent .val{color:var(--green)}
+  .kpi.gymcut .val{color:var(--gym)}
+
+  .rec{display:flex;align-items:center;gap:26px;margin-bottom:24px;flex-wrap:wrap}
+  .rec-left{flex:1;min-width:190px}
+  .rec-pct{font-size:40px;font-weight:800;color:var(--green);line-height:1}
+  .rec-cap{font-size:13px;color:var(--muted);margin-top:4px}
+  .rec-note{font-size:12.5px;color:var(--ink);margin-top:10px}
+  .rec-right{display:flex;align-items:center;gap:16px}
+  .donut{width:118px;height:118px;border-radius:50%;position:relative;flex:none;background:#cfd8e6}
+  .donut .hole{position:absolute;inset:24px;background:var(--card);border-radius:50%}
+  .rec-legend{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:7px}
+  .rec-legend .lg{display:flex;align-items:center;gap:7px}
+  .rec-legend .sw{width:11px;height:11px;border-radius:3px;flex:none}
+  .rec-legend b{color:var(--ink)}
+  .rec-ciclo{flex:none;padding:0 20px;border-left:2px solid #e8ecf1;min-width:120px}
+  .rec-ciclo-val{font-size:38px;font-weight:800;color:#3a7bd5;line-height:1}
+  .rec-ciclo-unit{font-size:15px;font-weight:600;color:#3a7bd5;margin-left:2px}
+  .rec-ciclo-cap{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.3}
+  .rec-ciclo-sub{font-size:11px;color:#aab4c0;margin-top:6px}
+
+  .trend-panel{margin-top:24px;margin-bottom:24px}
+  .trend-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+  .trend-toggle{display:flex;gap:3px;background:#eef2f8;border-radius:9px;padding:3px}
+  .trend-toggle button{background:none;border:none;padding:5px 14px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s}
+  .trend-toggle button.active{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+  .fin{margin-bottom:24px}
+  .fin .ribbon{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .fin .res{font-size:30px;font-weight:800;line-height:1}
+  .fin .res.pos{color:var(--green)} .fin .res.neg{color:var(--red)}
+  .fin .rescap{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .fin .bd{font-size:13px;color:var(--muted)} .fin .bd b{color:var(--ink)}
+  .fin .be{font-size:12.5px;color:var(--muted);margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+  .fin .be b{color:var(--ink)}
+  .fin-sup{margin-top:12px}
+  .fin-sup summary{cursor:pointer;font-size:12px;color:var(--cyan);font-weight:600;list-style:none}
+  .fin-sup summary::-webkit-details-marker{display:none}
+  .fin-sup summary::before{content:'▸ ';}
+  .fin-sup[open] summary::before{content:'▾ ';}
+  .fin-sup .body{font-size:12px;color:var(--muted);margin-top:10px}
+  .fin-sup table{border-collapse:collapse;margin:6px 0}
+  .fin-sup td{padding:2px 14px 2px 0}
+  .fin-sup td.n{text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+  .fin-sup tr.tot td{border-top:1px solid var(--line);font-weight:700;color:var(--ink)}
+  .fin-sup b{color:var(--ink)}
+
+  .grid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}.controls .dates{margin-left:0}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,36,58,.04);min-width:0}
+  .panel h2{font-size:15px;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+  .panel h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan)}
+
+  .gym{margin-bottom:17px}
+  .gym:last-child{margin-bottom:0}
+  .gym .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:8px}
+  .gym .name{font-weight:600;font-size:14px}
+  .gym .name .rank{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;
+    border-radius:6px;font-size:11px;background:var(--card2);color:var(--muted);margin-right:8px}
+  .gym .name .tag{font-size:10px;padding:2px 7px;border-radius:20px;margin-left:6px;font-weight:700;letter-spacing:.3px}
+  .gym .name .tag.new{background:rgba(31,170,106,.16);color:var(--green)}
+  .gym .name .tag.low{background:rgba(224,87,79,.14);color:var(--red)}
+  .gym .amt{font-size:12.5px;color:var(--muted);text-align:right;white-space:nowrap}
+  .gym .amt b{color:var(--ink)}
+  .bar{height:13px;background:var(--card2);border-radius:8px;overflow:hidden}
+  .bar > span{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,var(--cyan-soft),var(--cyan))}
+  .gym.cold .bar > span{background:linear-gradient(90deg,#b8c6dc,#8fa6c4)}
+  .gym.fresh .bar > span{background:linear-gradient(90deg,#7fd9a8,var(--green))}
+  .split{display:flex;gap:14px;margin-top:7px;font-size:12px;color:var(--muted)}
+  .split .gymc{color:var(--gym);font-weight:600}
+  .split .keep{color:var(--green);font-weight:600}
+  .split .sh{margin-left:auto}
+
+  .days-wrap{overflow-x:auto;padding-bottom:6px}
+  .days{display:flex;align-items:flex-end;gap:7px;height:180px;padding-top:8px;}
+  .day{flex:none;width:48px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .day .col{width:74%;background:linear-gradient(180deg,var(--cyan),var(--cyan-soft));border-radius:6px 6px 0 0;min-height:3px}
+  .day .col.zero{background:var(--card2)}
+  .day .col.partial{background:linear-gradient(180deg,#9fe0ee,#cdeef5)}
+  .day .v{font-size:9.5px;color:var(--ink);margin-bottom:4px;font-weight:600;white-space:nowrap}
+  .day .d{font-size:10px;color:var(--muted);margin-top:6px;text-align:center;white-space:nowrap}
+  .chart-note{font-size:12px;color:var(--muted);margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+  .chart-note b{color:var(--ink)}
+
+  .meta-panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,36,58,.04);margin-bottom:24px}
+  .meta-row{display:flex;gap:0;flex-wrap:wrap;margin-bottom:14px}
+  .meta-kpi{flex:1;min-width:140px;padding:0 20px}
+  .meta-kpi:first-child{padding-left:0}
+  .meta-kpi .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  .meta-kpi .val{font-size:26px;font-weight:800;color:var(--ink);line-height:1}
+  .meta-kpi .sub{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .meta-kpi .val.ok{color:var(--green)} .meta-kpi .val.warn{color:var(--gold)} .meta-kpi .val.bad{color:var(--red)}
+  .meta-div{width:1px;background:var(--line);margin:0}
+  .meta-progbar{height:10px;background:#eef2f8;border-radius:6px;overflow:hidden;margin:12px 0 10px}
+  .meta-progbar>span{display:block;height:100%;border-radius:6px;transition:width .4s}
+  .meta-note{font-size:12px;color:var(--muted);line-height:1.6} .meta-note b{color:var(--ink)}
+  .gym-meta-bar{margin-top:6px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+  .gym-meta-bar .gmb{flex:1;height:5px;background:#eef2f8;border-radius:4px;overflow:hidden}
+  .gym-meta-bar .gmb span{display:block;height:100%;border-radius:4px}
+  .gym-meta-bar .gmp{font-weight:700;min-width:30px;text-align:right}
+  .moneyflow{font-size:12px;color:var(--muted);margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+  .moneyflow b{color:var(--ink)}
+  footer{margin-top:22px;font-size:11px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ice <span class="scoop">Scoop</span> · Dashboard de ventas</h1>
+    <span class="src" id="srcBadge"><span class="dotsrc"></span><span id="srcText">Cargando…</span></span>
+  </header>
+
+  <!-- Upload / URL fallback -->
+  <div class="upload-box" id="uploadBox">
+    <p>Subí el archivo <b>ventas-master.csv</b> o configurá la URL de Google Sheets.</p>
+    <label>📂 Elegir CSV <input type="file" id="fileInput" accept=".csv"></label>
+    <div class="url-row">
+      <input type="text" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv">
+      <button id="loadUrlBtn">Cargar URL</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="presets" id="presets">
+      <button data-preset="all">Todo</button>
+      <button data-preset="7">Últimos 7 días</button>
+      <button data-preset="30">Últimos 30 días</button>
+    </div>
+    <div class="dates">
+      <label>Desde <input type="date" id="from"></label>
+      <label>Hasta <input type="date" id="to"></label>
+    </div>
+  </div>
+  <div class="range-label" id="rangeLabel"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="panel fin" id="finPanel">
+    <h2><span class="dot"></span>Salud financiera <span style="font-weight:400;color:var(--muted);font-size:11.5px">(estimada · canal gimnasio)</span></h2>
+    <div class="ribbon">
+      <div>
+        <div class="res" id="finRes">—</div>
+        <div class="rescap" id="finResCap"></div>
+      </div>
+      <div class="bd" id="finBd" style="margin-left:auto;text-align:right"></div>
+    </div>
+    <div class="be" id="finNote"></div>
+    <details class="fin-sup"><summary>Ver costos fijos y cómo se prorratean</summary><div class="body" id="finSup"></div></details>
+  </div>
+
+  <div class="panel rec" id="recPanel">
+    <div class="rec-left">
+      <div class="rec-pct" id="recPct">—</div>
+      <div class="rec-cap">de las ventas con tarjeta son <b>recompra</b></div>
+      <div class="rec-note" id="recNote"></div>
+    </div>
+    <div class="rec-ciclo" id="recCiclo" style="display:none">
+      <div><span class="rec-ciclo-val" id="cicloVal">—</span><span class="rec-ciclo-unit">días</span></div>
+      <div class="rec-ciclo-cap">promedio entre<br>recompras</div>
+      <div class="rec-ciclo-sub" id="cicloSub"></div>
+    </div>
+    <div class="rec-right">
+      <div class="donut" id="recDonut"><div class="hole"></div></div>
+      <div class="rec-legend" id="recLegend"></div>
+    </div>
+  </div>
+
+  <div class="meta-panel" id="metaPanel" style="display:none">
+    <h2><span class="dot" style="background:var(--gold)"></span>Metas del período</h2>
+    <div id="metaContent"></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2><span class="dot"></span>Progreso por gimnasio</h2>
+      <div id="gyms"></div>
+      <div class="moneyflow" id="moneyflow"></div>
+    </div>
+    <div class="panel">
+      <h2><span class="dot"></span>Ventas por día (bruto)</h2>
+      <div class="days-wrap"><div class="days" id="days"></div></div>
+      <div class="chart-note" id="chartNote"></div>
+    </div>
+  </div>
+
+  <div class="panel trend-panel">
+    <div class="trend-header">
+      <h2><span class="dot"></span>Evolución de ventas (bruto)</h2>
+      <div class="trend-toggle" id="trendToggle">
+        <button data-g="day" class="active">Día</button>
+        <button data-g="week">Semana</button>
+        <button data-g="month">Mes</button>
+      </div>
+    </div>
+    <div style="position:relative;height:240px"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <footer>
+    Ice Scoop · comisión gimnasio: 30% del bruto · helados estimados a $160 c/u (la cantidad se infiere del monto)
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script>
+// ── CONFIGURACIÓN ───────────────────────────────────────────────────────────
+// Pegá acá la URL de tu Google Sheet (File → Share → Publish to web → CSV)
+// Dejá vacío para usar la carga manual de archivo.
+const SHEET_CSV_URL = '';
+
+const PRICE = 160;
+const FIN = {
+  costoBlend:74, merma:0.10, mpFee:0.022, gymCut:0.30,
+  fijosCashMes:14147, sueldoAgustinMes:64000,
+  fijosDetalle:{ 'Honorarios contadora':4000,'BPS':4269,'DGI':1478,'Luz + agua (est.)':2000,'Publicidad Meta':2400 }
+};
+const META_GYM_MES = 100;
+const MES = ['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const TX_KEY = 'iceScoopLiteV1';
+
+// ── HELPERS ─────────────────────────────────────────────────────────────────
+function nf(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+function money(n){ return '$'+nf(n); }
+function pd(iso){ const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtShort(iso){ const dt=pd(iso); return dt.getDate()+' '+MES[dt.getMonth()]; }
+function fmtLong(iso){ const dt=pd(iso); return dt.getDate()+' '+MES[dt.getMonth()]+' '+dt.getFullYear(); }
+function addDays(iso,n){ const dt=pd(iso); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); }
+function units(g){ return Math.round(g/PRICE); }
+function colMeta(pct){ return pct>=80?'var(--green)':pct>=50?'var(--gold)':'var(--red)'; }
+function clsMeta(pct){ return pct>=80?'ok':pct>=50?'warn':'bad'; }
+
+// ── PARSER CSV LIMPIO (ventas-master.csv) ───────────────────────────────────
+// Formato: id,fecha,monto,gym,tarjeta
+function parseCleanCSV(text){
+  if(!text) return null;
+  const lines = text.trim().split('\n').filter(l=>l.trim());
+  if(lines.length < 2) return null;
+  const header = lines[0].split(',').map(s=>s.trim().replace(/"/g,'').toLowerCase());
+  const iId = header.indexOf('id');
+  const iFecha = header.indexOf('fecha');
+  const iMonto = header.indexOf('monto');
+  const iGym = header.indexOf('gym');
+  const iTarjeta = header.indexOf('tarjeta');
+  if(iId<0 || iFecha<0 || iMonto<0){ return null; }
+  const out = [];
+  for(let i=1; i<lines.length; i++){
+    // Handle quoted fields with commas inside
+    const c = splitCSVLine(lines[i]);
+    if(c.length < 3) continue;
+    const id = (c[iId]||'').trim().replace(/"/g,'');
+    const d = (c[iFecha]||'').trim().replace(/"/g,'');
+    const g = parseFloat((c[iMonto]||'').replace(/"/g,'').replace(',','.')) || 0;
+    const loc = iGym>=0 ? (c[iGym]||'').trim().replace(/"/g,'') : '(sin local)';
+    const p = iTarjeta>=0 ? (c[iTarjeta]||'').trim().replace(/"/g,'') : 'MP';
+    if(!id || !d || !g) continue;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    out.push({id, d, g, loc: loc||'(sin local)', p: p||'MP'});
+  }
+  return out.length ? out : null;
+}
+
+function splitCSVLine(line){
+  const cells=[]; let cur='', inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){ inQ=!inQ; continue; }
+    if(ch===','&&!inQ){ cells.push(cur); cur=''; continue; }
+    cur+=ch;
+  }
+  cells.push(cur);
+  return cells;
+}
+
+// ── ESTADO GLOBAL ───────────────────────────────────────────────────────────
+let DATA=[], MIND, MAXD, TODAY, firstSeen={};
+function setData(arr){
+  DATA=arr.slice();
+  const ds=DATA.map(t=>t.d).sort();
+  MIND=ds[0]; MAXD=ds[ds.length-1]; TODAY=MAXD;
+  firstSeen={};
+  DATA.forEach(t=>{ if(!firstSeen[t.loc]||t.d<firstSeen[t.loc]) firstSeen[t.loc]=t.d; });
+  try{
+    const stored=JSON.parse(localStorage.getItem('iceScoopFirstSeen')||'{}');
+    for(const loc in stored){ if(!firstSeen[loc]||stored[loc]<firstSeen[loc]) firstSeen[loc]=stored[loc]; }
+    for(const loc in firstSeen){ if(!stored[loc]||firstSeen[loc]<stored[loc]) stored[loc]=firstSeen[loc]; }
+    localStorage.setItem('iceScoopFirstSeen',JSON.stringify(stored));
+  }catch(e){}
+  const f=document.getElementById('from'), t=document.getElementById('to');
+  f.min=t.min=MIND; f.max=t.max=MAXD;
+}
+
+// ── RENDER PRINCIPAL ─────────────────────────────────────────────────────────
+function render(from, to){
+  const rows=DATA.filter(t=>t.d>=from&&t.d<=to);
+  document.getElementById('rangeLabel').innerHTML='Mostrando: <b>'+fmtLong(from)+'</b> al <b>'+fmtLong(to)+'</b>';
+  const elK=document.getElementById('kpis'), elG=document.getElementById('gyms'), elD=document.getElementById('days');
+
+  if(rows.length===0){
+    elK.innerHTML=''; elG.innerHTML='<p style="color:var(--muted);font-size:13px">No hay ventas en este rango.</p>';
+    elD.innerHTML=''; document.getElementById('moneyflow').innerHTML=''; document.getElementById('chartNote').innerHTML='';
+    document.getElementById('recPct').textContent='—'; document.getElementById('recNote').textContent='';
+    document.getElementById('recLegend').innerHTML=''; document.getElementById('recDonut').style.background='#cfd8e6';
+    document.getElementById('finRes').textContent='—'; document.getElementById('finRes').className='res';
+    document.getElementById('finResCap').textContent=''; document.getElementById('finBd').innerHTML=''; document.getElementById('finNote').innerHTML='';
+    document.getElementById('metaPanel').style.display='none';
+    return;
+  }
+
+  const bruto=rows.reduce((s,t)=>s+t.g,0), ventas=rows.length, helados=rows.reduce((s,t)=>s+units(t.g),0);
+  const gymCut=bruto*0.3, keep=bruto*0.7;
+
+  elK.innerHTML=`
+    <div class="kpi"><div class="label">Ventas</div><div class="val">${ventas} <small>· ~${helados} helados</small></div></div>
+    <div class="kpi"><div class="label">Bruto</div><div class="val">${money(bruto)}</div></div>
+    <div class="kpi gymcut"><div class="label">Comisión gimnasios (30%)</div><div class="val">${money(gymCut)}</div></div>
+    <div class="kpi accent"><div class="label">Te queda (70%)</div><div class="val">${money(keep)}</div></div>`;
+
+  // Gyms
+  const byGym={};
+  rows.forEach(t=>{ (byGym[t.loc]=byGym[t.loc]||{v:0,g:0,u:0}); byGym[t.loc].v++; byGym[t.loc].g+=t.g; byGym[t.loc].u+=units(t.g); });
+  const gyms=Object.entries(byGym).map(([loc,o])=>({loc,...o})).sort((a,b)=>b.g-a.g);
+  const maxG=gyms[0].g, lowest=gyms.length>1?gyms[gyms.length-1].loc:null;
+  elG.innerHTML=gyms.map((g,i)=>{
+    const share=g.g/bruto*100;
+    const _start=firstSeen[g.loc]>from?firstSeen[g.loc]:from;
+    const _actD=Math.max(1,Math.round((pd(to)-pd(_start))/86400000)+1);
+    const vel=Math.round(g.u/_actD*7);
+    const isNew=firstSeen[g.loc]>=addDays(MAXD,-6)&&firstSeen[g.loc]>=from;
+    const cls=isNew?'fresh':(g.loc===lowest&&share<10?'cold':'');
+    let tag=''; if(isNew) tag=' <span class="tag new">NUEVO</span>'; else if(g.loc===lowest&&share<10) tag=' <span class="tag low">a despertar</span>';
+    const gymMetaH=Math.round(META_GYM_MES*_actD/30);
+    const gymPct=gymMetaH>0?Math.min(100,Math.round(g.u/gymMetaH*100)):0;
+    const gymCol=colMeta(gymPct);
+    return `<div class="gym ${cls}"><div class="top">
+      <div class="name"><span class="rank">${i+1}</span>${g.loc}${tag}</div>
+      <div class="amt"><b>${money(g.g)}</b> · ${g.v} ${g.v===1?'venta':'ventas'} · ~${g.u} helados · $${Math.round(g.g/g.u)}/helado · <b style="color:var(--cyan)">~${vel}/sem</b></div></div>
+      <div class="bar"><span style="width:${(g.g/maxG*100).toFixed(1)}%"></span></div>
+      <div class="gym-meta-bar"><span style="color:var(--muted)">Meta:</span><div class="gmb"><span style="width:${gymPct}%;background:${gymCol}"></span></div><span class="gmp" style="color:${gymCol}">${gymPct}%</span><span style="color:var(--muted)">(${g.u}/${gymMetaH})</span></div>
+      <div class="split"><span>Gym 30%: <span class="gymc">${money(g.g*0.3)}</span></span><span>Te queda: <span class="keep">${money(g.g*0.7)}</span></span><span class="sh">${share.toFixed(1)}%</span></div></div>`;
+  }).join('');
+
+  const fee=bruto*0.022;
+  document.getElementById('moneyflow').innerHTML=`<b>Cómo se reparte cada peso:</b> de ${money(bruto)} brutos, los gimnasios se llevan <b>${money(gymCut)}</b> (30%) y te quedan <b>${money(keep)}</b>. Restando ~2,2% MP (~${money(fee)}), tu bolsillo es <b>~${money(keep-fee)}</b>.<br><b style="color:var(--cyan)">~/sem</b> = ritmo semanal de cada freezer, ajustado a días activo.`;
+
+  // Barras de día (sin clima)
+  const dayAgg={};
+  rows.forEach(t=>{ dayAgg[t.d]=(dayAgg[t.d]||0)+t.g; });
+  const days=[]; let cur=from; let guard=0;
+  while(cur<=to&&guard++<800){ days.push(cur); cur=addDays(cur,1); }
+  const maxDay=Math.max(1,...days.map(d=>dayAgg[d]||0));
+  elD.innerHTML=days.map(d=>{
+    const gross=dayAgg[d]||0, dt=pd(d), partial=d===TODAY;
+    const colCls=gross===0?'zero':(partial?'partial':'');
+    const h=gross===0?3:Math.max(6,gross/maxDay*120);
+    return `<div class="day"><div class="v">${money(gross)}</div><div class="col ${colCls}" style="height:${h}px"></div><div class="d">${DOW[dt.getDay()]} ${dt.getDate()}${partial?'*':''}</div></div>`;
+  }).join('');
+
+  let best=null; days.forEach(d=>{ if(dayAgg[d]&&(!best||dayAgg[d]>dayAgg[best])) best=d; });
+  let cn=best?`Mejor día del rango: <b>${DOW[pd(best).getDay()]} ${fmtShort(best)}</b> (${money(dayAgg[best])}).`:'';
+  if(days.indexOf(TODAY)>=0) cn+=' <b>*'+fmtShort(TODAY)+'</b> es el día en curso (parcial).';
+  document.getElementById('chartNote').innerHTML=cn;
+
+  // Recompra
+  const ident=rows.filter(t=>t.p&&t.p!=='MP');
+  const byCard={};
+  ident.forEach(t=>{ byCard[t.p]=(byCard[t.p]||0)+1; });
+  const repCards=Object.entries(byCard).filter(([,n])=>n>1).sort((a,b)=>b[1]-a[1]);
+  const repPurch=repCards.reduce((s,[,n])=>s+n,0);
+  const singlePurch=ident.length-repPurch, mpCount=rows.length-ident.length;
+  const recPct=ident.length?Math.round(repPurch/ident.length*100):0;
+  renderRecompra(recPct,repCards,repPurch,singlePurch,mpCount,rows.length);
+
+  // Ciclo de recompra (sobre todos los datos)
+  const ciclo=calcCicloRecompra(DATA);
+  const cicloEl=document.getElementById('recCiclo');
+  if(ciclo){
+    document.getElementById('cicloVal').textContent=ciclo.avg;
+    document.getElementById('cicloSub').textContent='('+ciclo.n+' recompra'+(ciclo.n!==1?'s':'')+' · datos globales)';
+    cicloEl.style.display='';
+  } else {
+    cicloEl.style.display='none';
+  }
+
+  renderFinanzas(rows, days.length);
+  renderMetas(from, to, gyms, helados, bruto, ciclo);
+  renderTrend(rows);
+}
+
+// ── CICLO DE RECOMPRA ────────────────────────────────────────────────────────
+function calcCicloRecompra(allTx){
+  const byCard={};
+  allTx.filter(t=>t.p&&t.p!=='MP').forEach(t=>{
+    if(!byCard[t.p]) byCard[t.p]=[];
+    byCard[t.p].push(t.d);
+  });
+  const gaps=[];
+  for(const dates of Object.values(byCard)){
+    if(dates.length<2) continue;
+    dates.sort();
+    for(let i=1;i<dates.length;i++){
+      const d=(new Date(dates[i])-new Date(dates[i-1]))/86400000;
+      if(d>0) gaps.push(d);
+    }
+  }
+  if(!gaps.length) return null;
+  return {avg:Math.round(gaps.reduce((s,d)=>s+d,0)/gaps.length), n:gaps.length};
+}
+
+function renderRecompra(pct,repCards,repPurch,single,mp,tot){
+  document.getElementById('recPct').textContent=pct+'%';
+  const note=document.getElementById('recNote');
+  if(repCards.length){
+    const last=repCards[0][0].split(' ').pop();
+    note.innerHTML=`<b>${repCards.length}</b> cliente${repCards.length>1?'s':''} ya recompró · top: <b>${repCards[0][1]} compras</b> (tarjeta …${last})`;
+  } else note.textContent='Sin recompra detectada en este rango.';
+  const a=tot?repPurch/tot*360:0, b=tot?a+single/tot*360:0;
+  document.getElementById('recDonut').style.background=`conic-gradient(var(--green) 0 ${a}deg,var(--cyan) ${a}deg ${b}deg,#cfd8e6 ${b}deg 360deg)`;
+  document.getElementById('recLegend').innerHTML=
+    `<div class="lg"><span class="sw" style="background:var(--green)"></span>Recompra: <b>${repPurch}</b></div>`+
+    `<div class="lg"><span class="sw" style="background:var(--cyan)"></span>Primera vez: <b>${single}</b></div>`+
+    `<div class="lg"><span class="sw" style="background:#cfd8e6"></span>Saldo MP (s/ID): <b>${mp}</b></div>`;
+}
+
+// ── FINANZAS ─────────────────────────────────────────────────────────────────
+function renderFinanzas(rows, dayspan){
+  const eff=FIN.costoBlend/(1-FIN.merma);
+  let contrib=0;
+  rows.forEach(t=>{ const u=units(t.g); contrib += t.g*(1-FIN.gymCut-FIN.mpFee) - u*eff; });
+  const d=Math.max(1,dayspan);
+  const fijosCash=FIN.fijosCashMes/30*d;
+  const resCash=contrib-fijosCash;
+  const res=document.getElementById('finRes'), cap=document.getElementById('finResCap');
+  res.textContent=(resCash>=0?'+':'−')+'$'+nf(Math.abs(resCash));
+  res.className='res '+(resCash>=0?'pos':'neg');
+  cap.innerHTML=`resultado de <b>caja</b> del período (${d} día${d>1?'s':''})`;
+  document.getElementById('finBd').innerHTML=
+    `Contribución: <b>$${nf(contrib)}</b><br>− Fijos caja: <b>$${nf(fijosCash)}</b><br>= <b>${resCash>=0?'+':'−'}$${nf(Math.abs(resCash))}</b>`;
+  const cu_gym=160*(1-FIN.gymCut-FIN.mpFee)-eff;
+  const totalUnits=rows.reduce((s,t)=>s+units(t.g),0);
+  const beCashSem=Math.round(FIN.fijosCashMes/30*7/cu_gym);
+  const beRealSem=Math.round((FIN.fijosCashMes+FIN.sueldoAgustinMes)/30*7/cu_gym);
+  const ritmoSem=Math.round(totalUnits/d*7);
+  document.getElementById('finNote').innerHTML=
+    `<b>Punto de equilibrio (canal gym):</b> ~${beCashSem} paletas/semana (caja) · ~${beRealSem}/sem (real). Hoy vas a ~${ritmoSem}/semana.`;
+  const det=FIN.fijosDetalle; let detRows='', sumDet=0;
+  for(const k in det){ sumDet+=det[k]; detRows+=`<tr><td>${k}</td><td class="n">$${nf(det[k])}</td></tr>`; }
+  document.getElementById('finSup').innerHTML=
+    `<b>Costos fijos mensuales (UYU):</b><table>${detRows}`+
+    `<tr class="tot"><td>Total caja / mes</td><td class="n">$${nf(sumDet)}</td></tr>`+
+    `<tr><td>+ Sueldo Agustín (devengado*)</td><td class="n">$${nf(FIN.sueldoAgustinMes)}</td></tr>`+
+    `<tr class="tot"><td>Total real / mes</td><td class="n">$${nf(sumDet+FIN.sueldoAgustinMes)}</td></tr></table>`+
+    `<i>*No sale de caja hoy, por eso el resultado de caja usa solo $${nf(sumDet)}/mes.</i><br><br>`+
+    `<b>Prorrateo:</b> período de ${d} días → fijos caja = $${nf(sumDet)} ÷ 30 × ${d} = <b>$${nf(Math.round(FIN.fijosCashMes/30*d))}</b>.`;
+}
+
+// ── METAS ────────────────────────────────────────────────────────────────────
+function renderMetas(from, to, gyms, helados, bruto, cicloObj){
+  const panel=document.getElementById('metaPanel');
+  if(!gyms.length){ panel.style.display='none'; return; }
+  panel.style.display='';
+  const perioDias=Math.max(1,Math.round((pd(to)-pd(from))/86400000)+1);
+  const nG=gyms.length;
+  const metaH=Math.round(nG*META_GYM_MES*perioDias/30);
+  const precioEf=helados>0?Math.round(bruto/helados):PRICE;
+  const metaB=metaH*precioEf;
+  const metaIS=Math.round(metaB*0.7*0.978);
+  const realIS=Math.round(bruto*0.7*0.978);
+  const pct=metaH>0?Math.round(helados/metaH*100):0;
+  const pctCap=Math.min(pct,100);
+  const col=colMeta(pct), cls=clsMeta(pct);
+  const cicloActual=cicloObj?cicloObj.avg:9;
+  const cliActual=Math.ceil(META_GYM_MES/(30/cicloActual));
+  const cli7=Math.ceil(META_GYM_MES/(30/7));
+  const faltanH=metaH-helados;
+  const esPromo=precioEf<155;
+  const precioNote=esPromo?`<span style="color:var(--gold)"> · precio efectivo $${precioEf}/helado (promos activas)</span>`:'';
+  document.getElementById('metaContent').innerHTML=`
+    <div class="meta-row">
+      <div class="meta-kpi">
+        <div class="lbl">Meta período · ${nG} gyms · ${perioDias} días</div>
+        <div class="val">${metaH} <small style="font-size:14px;font-weight:600">helados</small></div>
+        <div class="sub">${money(metaB)} bruto · ${money(metaIS)} para Ice Scoop${precioNote}</div>
+      </div>
+      <div class="meta-div"></div>
+      <div class="meta-kpi">
+        <div class="lbl">Real</div>
+        <div class="val ${cls}">${helados} <small style="font-size:14px;font-weight:600">helados</small></div>
+        <div class="sub">${money(bruto)} bruto · ${money(realIS)} para Ice Scoop</div>
+      </div>
+      <div class="meta-div"></div>
+      <div class="meta-kpi">
+        <div class="lbl">Progreso</div>
+        <div class="val ${cls}">${pct}%</div>
+        <div class="sub">${faltanH>0?'Faltan <b>'+faltanH+' helados</b>':'✅ Meta superada'}</div>
+      </div>
+    </div>
+    <div class="meta-progbar"><span style="width:${pctCap}%;background:${col}"></span></div>
+    <div class="meta-note">
+      <b>Base:</b> ${META_GYM_MES} helados/mes por gym · comisión 30% gym + 2,2% MP.<br>
+      <b>Clientes activos necesarios por gym:</b> ciclo actual <b>${cicloActual} días</b> → <b>${cliActual} clientes/gym</b>.
+      Si bajás el ciclo a <b>7 días</b> → solo <b>${cli7} clientes/gym</b>.
+    </div>`;
+}
+
+// ── TREND CHART ──────────────────────────────────────────────────────────────
+let trendChart=null, trendGran='day', CURROWS=[];
+function getWeekStart(ds){
+  const d=new Date(ds+'T12:00:00'), day=d.getDay(), diff=day===0?-6:1-day;
+  d.setDate(d.getDate()+diff); return d.toISOString().slice(0,10);
+}
+function renderTrend(rows){
+  CURROWS=rows;
+  const agg={};
+  rows.forEach(t=>{
+    const k=trendGran==='day'?t.d:trendGran==='week'?getWeekStart(t.d):t.d.slice(0,7);
+    agg[k]=(agg[k]||0)+t.g;
+  });
+  const labels=Object.keys(agg).sort();
+  const values=labels.map(k=>agg[k]);
+  const MONTHS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const fmtLbl=k=>{
+    if(trendGran==='month'){ const[y,m]=k.split('-'); return MONTHS[+m-1]+' '+y; }
+    if(trendGran==='week') return 'Sem '+fmtShort(k);
+    return fmtShort(k);
+  };
+  const ctx=document.getElementById('trendChart').getContext('2d');
+  if(trendChart) trendChart.destroy();
+  trendChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:labels.map(fmtLbl),
+      datasets:[{
+        data:values,
+        borderColor:'#3a7bd5',
+        backgroundColor:'rgba(58,123,213,0.07)',
+        pointBackgroundColor:'#3a7bd5',
+        pointBorderColor:'#fff',
+        pointBorderWidth:2,
+        pointRadius:5,
+        pointHoverRadius:7,
+        tension:0.35,
+        fill:true,
+        borderWidth:2.5
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'rgba(22,36,58,0.92)',
+          titleFont:{size:12},
+          bodyFont:{size:13,weight:'bold'},
+          padding:10,
+          callbacks:{
+            title:items=>items[0].label,
+            label:ctx=>' $'+nf(Math.round(ctx.parsed.y))
+          }
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:11},color:'#8a94a6',maxRotation:45,maxTicksLimit:14}},
+        y:{grid:{color:'rgba(0,0,0,0.04)'},beginAtZero:true,ticks:{font:{size:11},color:'#8a94a6',callback:v=>'$'+nf(v)}}
+      }
+    }
+  });
+}
+document.querySelectorAll('#trendToggle button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    trendGran=b.dataset.g;
+    document.querySelectorAll('#trendToggle button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    renderTrend(CURROWS);
+  });
+});
+
+// ── CONTROLES ────────────────────────────────────────────────────────────────
+const fromEl=document.getElementById('from'), toEl=document.getElementById('to');
+function setPreset(p){
+  let from=MIND, to=MAXD;
+  if(p==='7') from=addDays(MAXD,-6); else if(p==='30') from=addDays(MAXD,-29);
+  if(from<MIND) from=MIND;
+  fromEl.value=from; toEl.value=to; markActive(p);
+  try{ localStorage.setItem('iceScoopLiteRange',JSON.stringify({from,to,p})); }catch(e){}
+  render(from,to);
+}
+function markActive(p){ document.querySelectorAll('#presets button').forEach(b=>b.classList.toggle('active',b.dataset.preset===p)); }
+document.querySelectorAll('#presets button').forEach(b=>b.addEventListener('click',()=>setPreset(b.dataset.preset)));
+[fromEl,toEl].forEach(el=>el.addEventListener('change',()=>{
+  let from=fromEl.value||MIND, to=toEl.value||MAXD;
+  if(from>to){ const t=from; from=to; to=t; fromEl.value=from; toEl.value=to; }
+  markActive(null); render(from,to);
+}));
+function applyRange(){
+  let st=null; try{ st=JSON.parse(localStorage.getItem('iceScoopLiteRange')); }catch(e){}
+  if(st&&st.p&&st.p!=='all') setPreset(st.p);
+  else setPreset('all');
+}
+
+// ── BADGE ────────────────────────────────────────────────────────────────────
+function badge(state, detail){
+  const el=document.getElementById('srcBadge'), tx=document.getElementById('srcText');
+  el.className='src '+(state==='vivo'?'live':state==='archivo'?'snap':'');
+  if(state==='vivo') tx.textContent='En vivo · Google Sheets';
+  else if(state==='archivo') tx.textContent='Archivo local · '+detail;
+  else tx.textContent=detail||'Sin datos';
+}
+
+// ── CARGA DE DATOS ───────────────────────────────────────────────────────────
+function loadData(csvText, source, label){
+  const parsed=parseCleanCSV(csvText);
+  if(!parsed||!parsed.length){
+    badge('error','No se pudo parsear el CSV');
+    document.getElementById('uploadBox').classList.add('show');
+    return;
+  }
+  // Guardar en localStorage para persistencia
+  try{ localStorage.setItem(TX_KEY, JSON.stringify(parsed)); }catch(e){}
+  setData(parsed);
+  badge(source, label);
+  applyRange();
+  document.getElementById('uploadBox').classList.remove('show');
+}
+
+// File input
+document.getElementById('fileInput').addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=ev=>loadData(ev.target.result, 'archivo', f.name);
+  reader.readAsText(f, 'utf-8');
+});
+
+// URL manual
+document.getElementById('loadUrlBtn').addEventListener('click', async ()=>{
+  const url=document.getElementById('sheetUrlInput').value.trim();
+  if(!url) return;
+  try{
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const text=await r.text();
+    loadData(text, 'vivo', '');
+    try{ localStorage.setItem('iceScoopLiteURL', url); }catch(e){}
+  }catch(err){
+    alert('No se pudo cargar la URL: '+err.message+'\nVerificá que el sheet sea público y la URL sea correcta.');
+  }
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+(async function init(){
+  // 1. Intentar URL configurada en código
+  const urlFromCode = SHEET_CSV_URL.trim();
+  // 2. Intentar URL guardada en localStorage
+  let savedUrl=''; try{ savedUrl=localStorage.getItem('iceScoopLiteURL')||''; }catch(e){}
+  const urlToTry = urlFromCode || savedUrl;
+
+  if(urlToTry){
+    try{
+      const r=await fetch(urlToTry);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const text=await r.text();
+      const parsed=parseCleanCSV(text);
+      if(parsed&&parsed.length){
+        try{ localStorage.setItem(TX_KEY,JSON.stringify(parsed)); }catch(e){}
+        setData(parsed);
+        badge('vivo','');
+        applyRange();
+        // Pre-rellenar el input por si quieren verla
+        document.getElementById('sheetUrlInput').value=urlToTry;
+        return;
+      }
+    }catch(e){}
+  }
+
+  // 3. Intentar datos de localStorage
+  let stored=[]; try{ stored=JSON.parse(localStorage.getItem(TX_KEY)||'[]'); }catch(e){}
+  if(stored.length){
+    setData(stored);
+    badge('archivo','caché local');
+    applyRange();
+    // Mostrar upload box para que puedan actualizar
+    document.getElementById('uploadBox').classList.add('show');
+    return;
+  }
+
+  // 4. Sin datos → mostrar upload box
+  badge('','Sin datos — subí el CSV');
+  document.getElementById('srcText').textContent='Sin datos';
+  document.getElementById('uploadBox').classList.add('show');
+})();
+</script>
+</body>
+</html>
